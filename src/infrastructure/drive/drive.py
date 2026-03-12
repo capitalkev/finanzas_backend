@@ -22,9 +22,9 @@ class DriveService:
         return build("drive", "v3", credentials=creds)
 
     def create_subfolder(
-        self, servicio: Resource, nombre_carpeta: str, carpeta_padre: str
+        self, servicio: Resource, operacion_id: str, carpeta_padre: str
     ) -> str:
-        safe_name = nombre_carpeta.replace("'", "\\'")
+        safe_name = operacion_id.replace("'", "\\'")
         query = (
             f"name='{safe_name}' and '{carpeta_padre}' in parents "
             "and mimeType='application/vnd.google-apps.folder' and trashed=false"

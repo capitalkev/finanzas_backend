@@ -1,5 +1,6 @@
+# src/infrastructure/excel_extraction/extraction_excel.py
 import os
-import zipfile
+import base64
 import pandas as pd
 
 from src.infrastructure.create_pdfs.create import build_carta_pdf
@@ -18,10 +19,7 @@ class ExcelExtraction:
         self.COL_FECHA_INGRESO = "Fecha Ingreso"
         self.TENEDOR_VALIDO = "Toesca Deuda Privada Oportunidades USD FIP"
 
-    def extract_data(self, file_stream, fecha_ingreso_desde_str: str) -> str:
-        """
-        Procesa el excel, genera los PDFs y retorna la ruta del archivo ZIP generado.
-        """
+    def extract_data(self, file_stream, fecha_ingreso_desde_str: str) -> list[dict]:
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
 
         df = pd.read_excel(file_stream, sheet_name=self.SHEET_NAME, engine="openpyxl")
@@ -34,12 +32,6 @@ class ExcelExtraction:
         df = df[df[self.COL_TENEDOR] == self.TENEDOR_VALIDO]
         df = df[df[self.COL_FECHA_INGRESO] >= fecha_desde]
 
-        required = [self.COL_DEUDOR, self.COL_MONTO, self.COL_NUMDOC, self.COL_MONEDA, self.COL_VENC]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise ValueError(f"Faltan columnas en el Excel: {missing}")
-
-        # Preparar datos de trabajo
         df_work = pd.DataFrame({
             "deudor": df[self.COL_DEUDOR],
             "numdoc": df[self.COL_NUMDOC],
@@ -52,21 +44,30 @@ class ExcelExtraction:
         df_work = df_work[df_work["deudor"].notna() & (df_work["deudor"] != "")]
         df_work["monto_num"] = df_work["monto_raw"].apply(parse_amount_latam)
 
-        pdf_paths = []
+        resultados = []
 
-        # Generar PDFs iterando por deudor
         for deudor, group in df_work.groupby("deudor", dropna=True):
             out_file = f"Carta_Cesion_{safe_filename(deudor)}.pdf"
             out_path = os.path.join(self.OUTPUT_DIR, out_file)
+            
+            # Generar PDF físicamente
             build_carta_pdf(deudor, group, out_path)
-            pdf_paths.append(out_path)
-            print(f"OK -> {out_path}")
+            
+            # Calcular monto total para el frontend
+            monto_total = float(group["monto_num"].sum())
+            
+            # Leer como Base64 y eliminar archivo físico
+            with open(out_path, "rb") as f:
+                pdf_b64 = base64.b64encode(f.read()).decode('utf-8')
+            os.remove(out_path)
+            
+            resultados.append({
+                "id": safe_filename(deudor),
+                "ruc": "N/A",
+                "nombre": deudor,
+                "montoTotal": monto_total,
+                "pdfGenerado": out_file,
+                "pdfBase64": pdf_b64
+            })
 
-        # Comprimir todos los PDFs en un ZIP
-        zip_filename = "cartas_cesion.zip"
-        with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            for pdf_path in pdf_paths:
-                # Agregamos al zip solo el nombre del archivo, no toda la ruta
-                zipf.write(pdf_path, os.path.basename(pdf_path))
-
-        return zip_filename
+        return resultados
