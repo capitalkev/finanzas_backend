@@ -1,0 +1,10 @@
+__init__.py
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
