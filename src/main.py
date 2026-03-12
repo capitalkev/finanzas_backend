@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.interfaces.router import finanzas
+from src.infrastructure.auth.firebase_init import initialize_firebase
 
 
 def create_application() -> FastAPI:
@@ -15,7 +16,7 @@ def create_application() -> FastAPI:
         description="API para la gestión de operaciones en Perú",
         version="1.0.0",
     )
-
+    initialize_firebase()
     origins = ["http://localhost:5173", "https://operaciones-capitalexpress.web.app", "*"]
     application.add_middleware(
         CORSMiddleware,

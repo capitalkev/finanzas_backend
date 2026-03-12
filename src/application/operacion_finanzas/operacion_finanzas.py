@@ -1,5 +1,7 @@
+import logging
 from typing import Any
 from typing_extensions import TypedDict
+from fastapi import UploadFile
 
 from src.application.operacion_finanzas.correo_robot import CorreoOperacion
 from src.application.operacion_finanzas.drive_robot import DriveOperacion
@@ -16,35 +18,39 @@ class RobotOperacion:
 
     async def execute(
         self,
-        pdf_files: list[Any],
+        pdf_files: list[UploadFile],
         configuracion_envios: list[dict],
-        nombre_carpeta: str
+        fecha_carpeta: str
     ) -> RobotOperacionResult:
 
+        # 1. Creamos un diccionario para buscar rápido los PDFs por su nombre
         files_by_name = {f.filename: f for f in pdf_files}
         envios_exitosos = True
 
-        # 1. Enviar correos respetando la configuración del frontend
+        # 2. Iteramos sobre la configuración que mandó el frontend
         for config in configuracion_envios:
             filename = config.get("filename")
             correos = config.get("correos", [])
             
             file_obj = files_by_name.get(filename)
 
+            # Si el archivo existe y tiene correos asignados, lo enviamos de forma aislada
             if file_obj and correos:
-                # Se envía solo el PDF correspondiente a sus correos asignados
                 result = self.correo.execute(correos=correos, pdf=[file_obj])
                 if not result:
                     envios_exitosos = False
 
-        # 2. Subir todos a Drive bajo la carpeta de la fecha
-        drive = self.drive.execute_primero(nombre_carpeta=nombre_carpeta)
+        # 3. Crear carpeta en Drive con el nombre de la fecha y subir los PDFs
+        nombre_final_carpeta = f"Cartas de cesión - {fecha_carpeta}"
+        drive = self.drive.execute_primero(nombre_carpeta=nombre_final_carpeta)
+        
         drive_s = self.drive.execute_secundario(
-            documentos=pdf_files, carpeta_hijo=str(drive.get("folder_id"))
+            documentos=pdf_files, 
+            carpeta_hijo=str(drive.get("folder_id"))
         )
 
         return {
             "drive": drive,
             "drive_secundario": drive_s,
-            "correo": "Proceso completado" if envios_exitosos else "Con errores",
+            "correo": "Envío completado" if envios_exitosos else "Hubo errores en algunos correos",
         }

@@ -1,10 +1,8 @@
-# src/interfaces/router/finanzas.py
 import json
 from fastapi import APIRouter, File, UploadFile, Form, Depends
 
 from src.application.operacion_finanzas.operacion_finanzas import RobotOperacion
-
-from src.infrastructure.excel_extraction.extraction_excel import ExcelExtraction
+from src.application.excel_extraction.extraction_usecase import ExtractionUseCase
 
 router = APIRouter(prefix="/finanzas", tags=["finanzas"])
 
@@ -12,9 +10,9 @@ router = APIRouter(prefix="/finanzas", tags=["finanzas"])
 async def extract_excel(
     excel: UploadFile = File(...),
     fecha_ingreso_desde: str = Form(...),
+    usecase: ExtractionUseCase = Depends()
 ):
-    excel_extraction = ExcelExtraction()
-    resultados = excel_extraction.extract_data(excel.file, fecha_ingreso_desde)
+    resultados = usecase.execute(excel.file, fecha_ingreso_desde)
     return {"data": resultados}
     
 
@@ -25,10 +23,11 @@ async def enviar_cartas(
     fecha_carpeta: str = Form(...),
     action: RobotOperacion = Depends()
 ):
-    configuracion_envios = json.loads(datos_envio)
+    config_envios = json.loads(datos_envio)
     
-    return await action.execute(
+    resultado = await action.execute(
         pdf_files=pdfs,
-        configuracion_envios=configuracion_envios,
-        nombre_carpeta=f"Cartas de cesión - {fecha_carpeta}"
+        configuracion_envios=config_envios,
+        fecha_carpeta=fecha_carpeta
     )
+    return resultado

@@ -1,4 +1,3 @@
-# src/infrastructure/excel_extraction/extraction_excel.py
 import os
 import base64
 import pandas as pd
@@ -6,7 +5,7 @@ import pandas as pd
 from src.infrastructure.create_pdfs.create import build_carta_pdf
 from src.infrastructure.formato.formato import safe_filename, parse_amount_latam
 
-class ExcelExtraction:
+class ExcelExtractionService:
     def __init__(self):
         self.SHEET_NAME = 0
         self.OUTPUT_DIR = "output_cartas_cesion"
@@ -19,7 +18,7 @@ class ExcelExtraction:
         self.COL_FECHA_INGRESO = "Fecha Ingreso"
         self.TENEDOR_VALIDO = "Toesca Deuda Privada Oportunidades USD FIP"
 
-    def extract_data(self, file_stream, fecha_ingreso_desde_str: str) -> list[dict]:
+    def extract_and_convert_to_base64(self, file_stream, fecha_ingreso_desde_str: str) -> list[dict]:
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
 
         df = pd.read_excel(file_stream, sheet_name=self.SHEET_NAME, engine="openpyxl")
@@ -50,21 +49,22 @@ class ExcelExtraction:
             out_file = f"Carta_Cesion_{safe_filename(deudor)}.pdf"
             out_path = os.path.join(self.OUTPUT_DIR, out_file)
             
-            # Generar PDF físicamente
             build_carta_pdf(deudor, group, out_path)
             
-            # Calcular monto total para el frontend
             monto_total = float(group["monto_num"].sum())
             
-            # Leer como Base64 y eliminar archivo físico
+            # Leer el PDF creado en Base64 para el Frontend
             with open(out_path, "rb") as f:
                 pdf_b64 = base64.b64encode(f.read()).decode('utf-8')
+            
+            # Se elimina el PDF físico del servidor para no acumular basura
             os.remove(out_path)
             
             resultados.append({
                 "id": safe_filename(deudor),
-                "ruc": "N/A",
+                "ruc": "N/A", 
                 "nombre": deudor,
+                "correos": [], # Este array inicia vacío para que el Frontend lo llene
                 "montoTotal": monto_total,
                 "pdfGenerado": out_file,
                 "pdfBase64": pdf_b64

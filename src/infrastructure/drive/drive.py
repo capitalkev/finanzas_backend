@@ -22,9 +22,9 @@ class DriveService:
         return build("drive", "v3", credentials=creds)
 
     def create_subfolder(
-        self, servicio: Resource, operacion_id: str, carpeta_padre: str
+        self, servicio: Resource, nombre_carpeta: str, carpeta_padre: str
     ) -> str:
-        safe_name = operacion_id.replace("'", "\\'")
+        safe_name = nombre_carpeta.replace("'", "\\'")
         query = (
             f"name='{safe_name}' and '{carpeta_padre}' in parents "
             "and mimeType='application/vnd.google-apps.folder' and trashed=false"
@@ -48,7 +48,7 @@ class DriveService:
             return cast(str, existing_id)
 
         folder_metadata = {
-            "name": operacion_id,
+            "name": nombre_carpeta, # ¡Aquí decía operacion_id y lanzaba error!
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [carpeta_padre],
         }
